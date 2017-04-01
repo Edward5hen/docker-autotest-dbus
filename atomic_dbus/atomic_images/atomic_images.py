@@ -12,42 +12,45 @@ Prerequisites
 
 """
 
+import json
+
 from dbus_client import AtomicDBusClient
 from autotest.client import utils
 from dockertest.subtest import SubSubtest
 from dockertest.subtest import SubSubtestCaller
 from dockertest.images import DockerImages
-from dockertest.images import DockerContainers
+from dockertest.containers import DockerContainers
 
 
 DBUS_OBJ = AtomicDBusClient()
+IMAGE_NAME = 'registry.access.redhat.com/rhel7/rsyslog'
 
 
-class atomic_dbus(SubSubtestCaller):
+class atomic_images(SubSubtestCaller):
 
-    config_section = 'atomic_dbus'
+    config_section = 'atomic_dbus/atomic_images'
 
 
 class images_list(SubSubtest):
 
     def initialize(self):
         super(images_list, self).initialize()
-        utils.run('sudo docker pull rhel7/rsyslog')
+        utils.run('sudo docker pull %s' % IMAGE_NAME)
 
         self.sub_stuff['dbus_rst'] = ''
-        self.sub_stuff['host_rst'] = ''
 
     def run_once(self):
         super(images_list, self).run_once()
-        self.sub_stuff['host_rst'] = utils.run(
-                'sudo atomic images list')
         self.sub_stuff['dbus_rst'] = DBUS_OBJ.images_list()
 
     def postprocess(self):
         super(images_list, self).postprocess()
-        self.failif_ne(self.sub_stuff['host_rst'].stdout,
-                       self.sub_stuff['dbus_rst'],
-                       'Dbus failed to list images!')
+        decoded_json = json.loads(self.sub_stuff['dbus_rst'])
+        length = len(decoded_json)
+        _type = isinstance(decoded_json[0], dict)
+        name = decoded_json[0]['image_name']
+        value = 'yes' if length == 1 and _type and name == IMAGE_NAME else 'no'
+        self.failif_ne(value, 'yes', 'Dbus failed to list images')
 
 
 class images_help(SubSubtest):
