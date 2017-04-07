@@ -13,6 +13,8 @@ Prerequisites
 """
 
 import json
+import dbus
+from dbus.exceptions import DBusException
 
 from dbus_client import AtomicDBusClient
 from autotest.client import utils
@@ -58,34 +60,40 @@ class images_help(SubSubtest):
     def initialize(self):
         super(images_help, self).initialize()
         self.sub_stuff['img_id'] = utils.run(
-                "sudo docker images | sed -n 2p | awk '{print $3}'")
+                "sudo docker images --format {{.ID}}").stdout.strip()
 
         self.sub_stuff['dbus_rst'] = ''
         self.sub_stuff['host_rst'] = ''
 
+    # Since I could find any image has the help info, I just use rsyslog here.
+    # Although the command will fail, but if we got the same error msg via dbus
+    # it means that dbus works.
     def run_once(self):
         super(images_help, self).run_once()
         self.sub_stuff['host_rst'] = utils.run(
-                'sudo atomic images help %s' % self.sub_stuff['img_id'])
-        self.sub_stuff['dbus_rst'] = DBUS_OBJ.images_help(
-                self.sub_stuff['img_id'])
+                'sudo atomic images help %s' % self.sub_stuff['img_id'],
+                ignore_status=True).stderr.strip()
+        try:
+            DBUS_OBJ.images_help(self.sub_stuff['img_id'])
+        except DBusException, e:
+            self.sub_stuff['dbus_rst'] = str(e)
 
     def postprocess(self):
         super(images_help, self).postprocess()
-        self.failif_ne(self.sub_stuff['dbus_rst'],
-                       self.sub_stuff['host_rst'].stdout,
-                       'Dbus failed to help image %s' %
-                       self.sub_stuff['img_id'])
+        self.failif(
+            self.sub_stuff['host_rst'] not in self.sub_stuff['dbus_rst'],
+            'DBus failed to help images!'
+        )
 
 
 class images_prune(SubSubtest):
 
     def initialize(self):
         super(images_prune, self).initialize()
-        utils.run('sudo atomic install rhel7/rsyslog')
-        utils.run('sudo atomic run rhel7/rsyslog')
+        utils.run('sudo atomic install %s' % IMAGE_NAME)
+        utils.run('sudo atomic run %s' % IMAGE_NAME)
         # Create dangling image
-        utils.run('sudo atomic commit rsyslog')
+        utils.run('sudo docker commit rsyslog')
 
     def run_once(self):
         super(images_prune, self).run_once()
@@ -98,7 +106,7 @@ class images_prune(SubSubtest):
                        'Dbus failed to prune dangling images')
 
     def clean_up(self):
-        super(images_prune, self).postprocess()
+        super(images_prune, self).clean_up()
         ctns = DockerContainers(self)
         ctns.clean_all(['rsyslog'])
 
