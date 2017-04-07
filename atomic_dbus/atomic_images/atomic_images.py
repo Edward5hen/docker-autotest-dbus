@@ -10,7 +10,6 @@ Operational Detail
 Prerequisites
 ---------------
 
-test github contribution
 """
 
 import json
