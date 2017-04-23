@@ -6,14 +6,66 @@ Test atomic dbus service
 
 Operational Detail
 ----------------------
+#. atomic images info & delete
+setup:
+1. sudo docker pull rhel7/rsyslog
 
-Prerequisites
+Step1: create a dbus client that gets a system dbus object as dbus_object with
+        the path/org/atomic/object and the well-known name org.atomic
+Expectation: dbus_object has been successfully obtained
+Step2: print dbus_object.ImagesInfo("rhel7/rsyslog", False,
+        dbus_interface="org.atomic") in the client
+Expectation: output is same as running sudo atomic images info rhel7/rsyslog
+Step3: print dbus_object.ImagesInfo("rhel7/sadc", True,
+        dbus_interface="org.atomic") in the client
+Expectation: output is same as running "sudo atomic images info \
+        --remote rhel7/sadc"
+Step4: run dbus_object.ImagesDelete("rhel7/rsyslog", False, False,
+        dbus_interface="org.atomic") in the client
+Expectation: image rhel7/rsyslog is successfully deleted
+Step5: pull rhel7/rsyslog and install and run it
+Expectation: container can be successfully started
+Step6: run dbus_object.ImagesDelete("rhel7/rsyslog", True, False,
+        dbus_interface="org.atomic") in the client
+Expectation: image rhel7/rsyslog is successfully deleted
+Step7: run dbus_object.ImagesDelete("some_remote_registry/some_image:some_tag",
+        False, True, dbus_interface="org.atomic") in the client
+Expectation: some_image in some_remote_registry with some_tag is
+        successfully deleted on the registry host
+
+#. atomic images prune
+Setup:
+1. sudo docker pull rhel7/rsyslog
+2. sudo atomic install rhel7/rsyslog
+3. sudo atomic run rhel7/rsyslog
+4. sudo docker commit $container_id without specifying repo and
+   tag to create a dangling image manually
+
+Step1: create a dbus client that gets a system dbus object as dbus_object with
+        the path/org/atomic/object and the well-known name org.atomic
+Expectation: dbus_object has been successfully obtained
+Step2: run dbus_object.ImagesPrune(dbus_interface="org.atomic") in the client
+Expectation: the manually created dangling image is successfully pruned
+
+#. atomic images list & help
+Setup:
+1. sudo docker pull rhel7/rsyslog
+2. img_id=`sudo docker images | sed -n 2p | awk '{print $3}'`
+
+Step1: create a dbus client that gets a system dbus object as dbus_object with
+        the path /org/atomic/object and the well-known name org.atomic
+Expectation: dbus_object has been successfully obtained
+Step2: print dbus_object.ImagesList(dbus_interface="org.atomic") in the client
+Expectation: the output is the same as sudo atomic images list
+Step3: print dbus_object.ImagesHelp(img_id, dbus_interface="org.atomic")
+       in the client
+Expectation: the output is the same as "sudo atomic images help $img_id"
+
 ---------------
 
 """
 
 import json
-import dbus
 from dbus.exceptions import DBusException
 
 from dbus_client import AtomicDBusClient
@@ -65,7 +117,7 @@ class images_help(SubSubtest):
         self.sub_stuff['dbus_rst'] = ''
         self.sub_stuff['host_rst'] = ''
 
-    # Since I could find any image has the help info, I just use rsyslog here.
+    # Since I couldn't find any image has the help info, I just use rsyslog.
     # Although the command will fail, but if we got the same error msg via dbus
     # it means that dbus works.
     def run_once(self):

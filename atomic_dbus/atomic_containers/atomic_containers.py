@@ -6,8 +6,57 @@ Test atomic dbus service
 
 Operational Detail
 ----------------------
+#. atomic containers list
+Setup:
+1. sudo docker pull rhel7/rsyslog
+2. sudo docker atomic install rhel7/rsyslog
+3. sudo atomic run rhel7/rsyslog
 
-Prerequisites
+Step1: create a dbus client that gets a system dbus object as dbus_object with
+        the path/org/atomic/object and the well-known name org.atomic
+Expectation: dbus_object has been successfully obtained
+Step2: print dbus_object.ContainersList(dbus_interface="org.atomic")
+        in the client
+Expectation: the output is same as sudo atomic containers list
+
+Teardown:
+1. sudo docker stop rsyslog
+2. sudo docker rm rsyslog
+3. sudo docker rmi rhel7/rsyslog
+
+#. atomic containers delete
+Setup:
+1. sudo docker pull rhel7/rsyslog
+2. sudo atomic install rhel7/rsyslog
+3. sudo atomic run rhel7/rsyslog
+4. sudo docker stop rsyslog
+
+Step1: create a dbus client that gets a system dbus object as dbus_object with
+        the path/org/atomic/object and the well-known name org.atomic
+Expectation:  dbus_object has been successfully obtained
+Step2: run dbus_object.ContainersDelete(['rsyslog'], False, False,
+        '', dbus_interface='org.atomic') in client
+Expectation: rsyslog container has been successfully deleted
+Step3: sudo atomic run rhel7/rsyslog
+Expectation: rsyslog container is started again
+Step4: run dbus_object.ContainersDelete(['rsyslog'], False, True, '',
+        dbus_interface='org.atomic') in client
+Expectation: rsyslog container has been successfully deleted
+Step5: sudo atomic run rhel7/rsyslog & docker pull rhel7/sadc &
+       atomic install rhel7/sadc & atomic run rhel7/sadc
+Expectation: rsyslog and sadc container are successfully started
+Step6: docker stop rsyslog & docker stop sadc
+Expectation: make containers' status not running
+Step7: run dbus_object.ContainersDelete(None, True, False, '',
+        dbus_interface='org.atomic') in client
+Expectation: both containers are successfully deleted
+Step8: sudo atomic run rhel7/rsyslog & sudo docker pull rhel7/sadc &
+        sudo atomic install rhel7/sadc & sudo atomic run rhel7/sadc
+Expectation: rsyslog and sadc container are successfully started
+Step9: run dbus_object.ContainersDelete(None, True, True, '',
+        dbus_interface='org.atomic') in client
+Expectatoin: both containers are successfully deleted
+
 ---------------
 
 """
@@ -17,7 +66,7 @@ from autotest.client import utils
 from dockertest.subtest import SubSubtest
 from dockertest.subtest import SubSubtestCaller
 from dockertest.images import DockerImages
-from dockertest.images import DockerContainers
+from dockertest.containers import DockerContainers
 
 
 DBUS_OBJ = AtomicDBusClient()
