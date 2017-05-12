@@ -25,6 +25,12 @@ class AtomicDBusClient(object):
     def images_help(self, image):
         return self.dbus_object.ImagesHelp(image, dbus_interface="org.atomic")
 
+    def update(self, image, force=False):
+        return self.dbus_object.ImageUpdate(
+                   image, force,
+                   dbus_interface="org.atomic"
+               )
+
     def containers_list(self):
         return self.dbus_object.ContainersList(dbus_interface="org.atomic")
 
@@ -38,6 +44,9 @@ class AtomicDBusClient(object):
     def top(self, containers, optional):
         return self.dbus_object.Top(containers, optional,
                                     dbus_interface='org.atomic')
+
+    def verify(self, image):
+        return self.dbus_object.Verify(image, dbus_interface='org.atomic')
 
 
 if __name__ == "__main__":
@@ -71,3 +80,9 @@ if __name__ == "__main__":
             if arg in ('-f', '--force'):
                 force = True
         dbus_client.containers_delete(ctns, all_del, force)
+    elif sys.argv[1] == 'verify':
+        dbus_client.verify(sys.argv[2])
+    elif sys.argv[1] == 'update':
+        update_force = True if sys.argv[2] == '-f' else False
+        update_image = sys.argv[3] if sys.argv[2] == '-f' else sys.argv[2]
+        dbus_client.update(update_image, update_force)
